@@ -1,0 +1,12 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RenderTest.App"
+             RequestedThemeVariant="Default">
+    <Application.Styles>
+        <FluentTheme />
+    </Application.Styles>
+
+    <Application.Resources>
+        <FontFamily x:Key="VgaFont">avares://CrtTextBox/Assets/Fonts/VGA#PxPlus IBM VGA8</FontFamily>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,73 @@
+// ╔══════════════════════╗
+// ║   Basic CRT Effect   ║
+// ║          by          ║
+// ║     DeanTheCoder     ║
+// ╚══════════════════════╝
+
+// License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
+
+// Effects: Fish eye, scan lines, vignette, screen jitter,
+//          background noise, electron bar.
+
+uniform float2 iResolution; // ShaderControl size
+uniform float iTime;
+
+uniform shader iImage1; // Source control image.
+uniform float2 iImageResolution; // Source control size.
+
+float2 fisheye(float2 uv)
+{
+    uv -= 0.5;
+    uv *= pow(dot(uv, uv), 0.01);
+    return uv + 0.5;
+}
+
+float smoothstep(float edge0, float edge1, float x) {
+    float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+    return t * t * (3.0 - 2.0 * t);
+}
+
+float bar(float y) {
+    y += 0.5;
+    y = fract(y * 0.7 - iTime * 0.1);
+    y = smoothstep(0.7, 0.98, y) + smoothstep(0.98, 1.0, 1.-y);
+    return y * 0.05;
+}
+
+float h21(float2 p) {
+    float3 p3 = fract(float3(p.xyx) * float3(0.1031, 0.11369, 0.13787));
+    p3 += dot(p3, p3.yzx + 19.19);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+float4 main(float2 fragCoord)
+{
+    // UV coords in the range of -0.5 to 0.5
+    float2 uv = (fragCoord / iResolution) - 0.5;
+
+    // Sample the input image (/source control).
+    float2 scale = iImageResolution / iResolution;
+    float noise = h21(fragCoord + iTime); // Jitter.
+    float3 imageRgb = sample(iImage1, (fisheye(uv + 0.5) * iImageResolution) * scale + float2(0.5 * noise, 0)).rgb;
+
+    // Calculate luminance.
+    float lum = 0.2126 * imageRgb.r + 0.7152 * imageRgb.g + 0.0722 * imageRgb.b;
+    lum += 0.25;
+
+    // Background noise.
+    lum += 0.2 * noise;
+
+    // Scrolling electron bar.
+    lum += bar(uv.y);
+    
+    // Scan lines.
+    if ((int(fragCoord.y) % 2) > 0) lum *= 0.8;
+    
+    // Orange tint.
+    float3 col = float3(1.0, 0.5, 0.0) * lum;
+    
+    // Vignette.
+    col *= 1.0 - pow(dot(uv, uv), 2.0);
+    
+    return float4(col, 1.0);
+}

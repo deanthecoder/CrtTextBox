@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:renderTest="clr-namespace:RenderTest"
+        mc:Ignorable="d"
+        x:Class="RenderTest.MainWindow"
+        Width="640" Height="480" WindowState="Maximized"
+        Title="CrtTextBox">
+    <Viewbox>
+        <Grid Width="640" Height="480">
+            <TextBox x:Name="Source"
+                     FontFamily="{StaticResource VgaFont}"
+                     AcceptsReturn="True"
+                     Background="Black"
+                     Foreground="White"
+                     Margin="-1"
+                     FontSize="16"
+                     Loaded="OnTextBoxLoaded" />
+            
+            <!-- The shader control, hooked up to the TextBox from the code-behind. -->
+            <renderTest:ShaderControl Fps="30"
+                                      ShaderUri="avares://CrtTextBox/Assets/crt.sksl"
+                                      Loaded="OnShaderControlLoaded" />
+        </Grid>
+    </Viewbox>
+</Window>
