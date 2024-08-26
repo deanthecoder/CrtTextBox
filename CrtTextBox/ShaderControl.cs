@@ -291,6 +291,7 @@ public class ShaderControl : UserControl
             using (var shader = children != null ? m_effect.ToShader(false, m_uniforms, children) : m_effect.ToShader(false, m_uniforms))
             {
                 paint.Shader = shader;
+                paint.FilterQuality = SKFilterQuality.Low;
                 canvas.DrawRect(SKRect.Create(targetWidth, targetHeight), paint);
             }
 
@@ -338,8 +339,7 @@ public class ShaderControl : UserControl
                 using (context.PushPostTransform(translateMatrix * scaleMatrix))
                 {
                     using var lease = leaseFeature.Lease();
-                    var canvas = lease.SkCanvas;
-                    Draw(canvas);
+                    Draw(lease.SkCanvas);
                 }
             }
         }
