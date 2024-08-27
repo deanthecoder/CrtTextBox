@@ -7,24 +7,24 @@
 // License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License
 
 // Effects: Fish eye, scan lines, vignette, screen jitter,
-//          background noise, electron bar.
+//          background noise, electron bar, shadows,
+//          screen glare, fake surround (with reflections).
 
 uniform float2 iResolution; // ShaderControl size
 uniform float iTime;
-
 uniform shader iImage1; // Source control image.
 uniform float2 iImageResolution; // Source control size.
-
-float2 fisheye(float2 uv)
-{
-    uv -= 0.5;
-    uv *= pow(dot(uv, uv), 0.01);
-    return uv + 0.5;
-}
 
 float smoothstep(float edge0, float edge1, float x) {
     float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);
+}
+
+float2 fisheye(float2 uv)
+{
+    uv *= 1.12; // Border
+    uv *= pow(dot(uv, uv), 0.03);
+    return uv;
 }
 
 float bar(float y) {
@@ -32,6 +32,10 @@ float bar(float y) {
     y = fract(y * 0.7 - iTime * 0.1);
     y = smoothstep(0.7, 0.98, y) + smoothstep(0.98, 1.0, 1.-y);
     return y * 0.05;
+}
+
+float lumin(float3 rgb) {
+    return 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
 }
 
 float h21(float2 p) {
@@ -42,32 +46,84 @@ float h21(float2 p) {
 
 float4 main(float2 fragCoord)
 {
-    // UV coords in the range of -0.5 to 0.5
-    float2 uv = (fragCoord / iResolution) - 0.5;
+    float2 res = float2(640, 480);
 
-    // Sample the input image (/source control).
-    float2 scale = iImageResolution / iResolution;
-    float noise = h21(fragCoord + iTime); // Jitter.
-    float3 imageRgb = sample(iImage1, (fisheye(uv + 0.5) * iImageResolution) * scale + float2(0.5 * noise, 0)).rgb;
+    // UV coords in the range of -0.5 to 0.5
+    float2 uv = (fragCoord / res) - 0.5;
+
+    float2 st = fisheye(uv);
+    float bev = (max(abs(st.x), abs(st.y)) - 0.498) / 0.035;
+    float ns = h21(fragCoord);
+
+    if (bev > 0.0)
+    {
+        // We're somewhere outside the CRT screen area.
+        float3 col = float3(0.68, 0.68, 0.592);
+        if (bev > 1.0)
+        {
+            // Monitor face.
+            col -= ns * 0.05;
+        }
+        else
+        {
+            // Bevel area.
+            col *= mix(0.1, 1.0, bev);
+            col = mix(float3(1.0, 0.5, 0.0) * 0.3, col, 0.5 + 0.5 * smoothstep(0.0, 0.4, bev));
+            col = col - float3(0.0, 0.05, 0.1) * ns;
+
+            // Shadow.
+            if (uv.y < 0.0)
+                col *= min(1.0, 0.6 * smoothstep(0.8, 1.0, bev) + 0.8 + smoothstep(0.4, 0.3, length(uv * float2(0.4, 1.0))));
+
+            // Screen reflection in the bevel.
+            float dir = sign(-uv.x);
+            float3 tint = float3(0);
+            for (float i = 0.0; i < 10.0; i++)
+            {
+                for (float j = -5.0; j < 5.0; j++)
+                    tint += sample(iImage1, (st * 0.93 + float2(dir * i, j * 2.0) * 0.002 + 0.5) * res).rgb;
+            }
+            tint /= 100.0;
+            tint = float3(1.0, 0.5, 0.0) * lumin(tint); 
+            col = mix(tint, col, 0.8 + 0.2 * bev);
+        }
+
+        return vec4(col, 1.0);
+    }
+
+    // Monitor screen.
+    float rnd = h21(fragCoord + iTime); // Jitter.
+    res *= 0.999;
+    float3 imageRgb = sample(iImage1, (st + 0.5) * res + float2(rnd, 0)).rgb;
 
     // Calculate luminance.
-    float lum = 0.2126 * imageRgb.r + 0.7152 * imageRgb.g + 0.0722 * imageRgb.b;
+    float lum = lumin(imageRgb);
     lum += 0.25;
 
     // Background noise.
-    lum += 0.2 * noise;
+    lum += 0.2 * rnd;
 
     // Scrolling electron bar.
     lum += bar(uv.y);
-    
+
     // Scan lines.
-    if ((int(fragCoord.y) % 2) > 0) lum *= 0.8;
-    
+    if ((int(fragCoord.y) % 2) == 0)
+        lum *= 0.8;
+
     // Orange tint.
     float3 col = float3(1.0, 0.5, 0.0) * lum;
-    
+
+    // Screen shadow.
+    float bright = 1.0;
+    if (uv.y < 0.0)
+        bright = smoothstep(0.43, 0.38, length(uv * float2(0.4, 1.0)));
+    col *= min(1.0, 0.5 + bright);
+
+    // Glare.
+    col = mix(col, float3(0.5 + 0.5 * ns), bright * 0.2 * smoothstep(0.7, 0.0, length((uv - float2(0.15, -0.3)) * float2(1.0, 2.0))));
+
     // Vignette.
-    col *= 1.0 - pow(dot(uv, uv), 2.0);
-    
+    col *= 1.0 - 1.2 * dot(uv, uv);
+
     return float4(col, 1.0);
 }

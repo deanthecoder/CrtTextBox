@@ -5,23 +5,29 @@
         xmlns:renderTest="clr-namespace:RenderTest"
         mc:Ignorable="d"
         x:Class="RenderTest.MainWindow"
-        Width="640" Height="480" WindowState="Maximized"
+        WindowState="Maximized"
         Title="CrtTextBox">
     <Viewbox>
-        <Grid Width="640" Height="480">
-            <TextBox x:Name="Source"
-                     FontFamily="{StaticResource VgaFont}"
-                     AcceptsReturn="True"
-                     Background="Black"
-                     Foreground="White"
-                     Margin="-1"
-                     FontSize="16"
-                     Loaded="OnTextBoxLoaded" />
-            
+        <Panel Width="640" Height="480">
+            <Viewbox>
+                <!-- Margin compensates CRT bevel. -->
+                <Panel Margin="20" Width="640" Height="480">
+                    <!-- The source control to apply the shader to. -->
+                    <TextBox x:Name="Source"
+                             FontFamily="{StaticResource VgaFont}"
+                             AcceptsReturn="True"
+                             Background="Black"
+                             Foreground="White"
+                             Margin="-1"
+                             FontSize="16"
+                             Loaded="OnTextBoxLoaded" />
+                </Panel>
+            </Viewbox>
+
             <!-- The shader control, hooked up to the TextBox from the code-behind. -->
             <renderTest:ShaderControl Fps="30"
                                       ShaderUri="avares://CrtTextBox/Assets/crt.sksl"
                                       Loaded="OnShaderControlLoaded" />
-        </Grid>
+        </Panel>
     </Viewbox>
 </Window>
