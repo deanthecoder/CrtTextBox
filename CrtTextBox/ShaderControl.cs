@@ -23,12 +23,20 @@ using SkiaSharp;
 
 namespace RenderTest;
 
+/// <summary>
+/// A custom Avalonia control that applies a shader effect to a visual element.
+/// </summary>
 public class ShaderControl : UserControl
 {
+    /// <summary>
+    /// Defines the Uri property for the shader source.
+    /// </summary>
     public static readonly StyledProperty<Uri> ShaderUriProperty =
         AvaloniaProperty.Register<ShaderControl, Uri>(nameof(ShaderUri));
 
-    // The sampling frame rate.
+    /// <summary>
+    /// Defines the sampling frame rate of the source control.
+    /// </summary>
     public static readonly StyledProperty<int> FpsProperty =
         AvaloniaProperty.Register<ShaderControl, int>(
             nameof(Fps),
@@ -45,18 +53,33 @@ public class ShaderControl : UserControl
         AffectsMeasure<ShaderControl>(ShaderUriProperty);
     }
 
+    /// <summary>
+    /// Gets or sets the frames per second (FPS) at which the source control is sampled.
+    /// </summary>
     public int Fps
     {
         get => GetValue(FpsProperty);
         set => SetValue(FpsProperty, value);
     }
 
+    /// <summary>
+    /// Gets or sets the URI of the shader to be applied.
+    /// </summary>
     public Uri ShaderUri
     {
         get => GetValue(ShaderUriProperty);
         set => SetValue(ShaderUriProperty, value);
     }
-    
+        
+    /// <summary>
+    /// Gets or sets the control source to which the shader effect will be applied.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown if the control source is already set.
+    /// </exception>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown if the control source is set to null.
+    /// </exception>
     public Control ControlSource
     {
         get => m_controlSource;
@@ -189,6 +212,16 @@ public class ShaderControl : UserControl
     private void DisposeImpl() =>
         m_customVisual?.SendHandlerMessage(new ShaderVisualHandler.DrawPayload(ShaderVisualHandler.Command.Dispose));
 
+    public void ReloadShader(string sksl)
+    {
+        Stop();
+        m_visualHandler.ShaderCode = sksl;
+        Start();
+    }
+
+    /// <summary>
+    /// Handles custom visual drawing for the shader effect.
+    /// </summary>
     private class ShaderVisualHandler : CompositionCustomVisualHandler
     {
         private readonly object m_sync = new object();
@@ -196,12 +229,19 @@ public class ShaderControl : UserControl
         private SKRuntimeEffect m_effect;
         private bool m_isDisposed;
         private bool m_running;
-        private string m_shaderCode;
         private Size? m_shaderSize;
         private SKRuntimeEffectUniforms m_uniforms;
 
+        internal string ShaderCode { get; set; }
+
+        /// <summary>
+        /// Gets or sets the source bitmap that the shader effect is applied to.
+        /// </summary>
         public SKBitmap SourceBitmap { get; set; }
 
+        /// <summary>
+        /// Handles messages sent to the visual handler, such as starting or stopping the shader effect.
+        /// </summary>
         public override void OnMessage(object message)
         {
             if (message is not DrawPayload msg)
@@ -211,12 +251,14 @@ public class ShaderControl : UserControl
             {
                 case { Command: Command.Start, ShaderCode: { } uri, ShaderSize: { } shaderSize, Size: { } size }:
                 {
-                    using var stream = AssetLoader.Open(uri);
-                    using var txt = new StreamReader(stream);
+                    if (ShaderCode == null)
+                    {
+                        using var stream = AssetLoader.Open(uri);
+                        using var txt = new StreamReader(stream);
+                        ShaderCode = txt.ReadToEnd();
+                    }
 
-                    m_shaderCode = txt.ReadToEnd();
-
-                    m_effect = SKRuntimeEffect.Create(m_shaderCode, out var errorText);
+                    m_effect = SKRuntimeEffect.Create(ShaderCode, out var errorText);
                     if (m_effect == null)
                         Console.WriteLine($"Shader compilation error: {errorText}");
 
@@ -246,6 +288,9 @@ public class ShaderControl : UserControl
             }
         }
 
+        /// <summary>
+        /// Updates the shader effect on each animation frame, and schedules the next frame to be processed.
+        /// </summary>
         public override void OnAnimationFrameUpdate()
         {
             if (!m_running || m_isDisposed)
@@ -255,6 +300,9 @@ public class ShaderControl : UserControl
             RegisterForNextAnimationFrameUpdate();
         }
 
+        /// <summary>
+        /// Draws the shader effect onto the given SkiaSharp canvas.
+        /// </summary>
         private void Draw(SKCanvas canvas)
         {
             if (m_isDisposed || m_effect is null)
@@ -298,6 +346,10 @@ public class ShaderControl : UserControl
             canvas.Restore();
         }
 
+        /// <summary>
+        /// Renders the shader effect within the context of the Avalonia ImmediateDrawingContext.
+        /// </summary>
+        /// <param name="context">The drawing context.</param>
         public override void OnRender(ImmediateDrawingContext context)
         {
             lock (m_sync)
@@ -356,6 +408,9 @@ public class ShaderControl : UserControl
             }
         }
 
+        /// <summary>
+        /// Enum representing commands sent to the shader visual handler.
+        /// </summary>
         public enum Command
         {
             Start,
@@ -364,6 +419,9 @@ public class ShaderControl : UserControl
             Dispose
         }
 
+        /// <summary>
+        /// A struct representing the payload for draw commands sent to the shader visual handler.
+        /// </summary>
         public record struct DrawPayload(
             Command Command,
             Uri ShaderCode = default,
