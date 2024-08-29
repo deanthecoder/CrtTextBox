@@ -25,7 +25,8 @@
             </Viewbox>
 
             <!-- The shader control, hooked up to the TextBox from the code-behind. -->
-            <renderTest:ShaderControl Fps="30"
+            <renderTest:ShaderControl x:Name="Shader"
+                                      Fps="30"
                                       ShaderUri="avares://CrtTextBox/Assets/crt.sksl"
                                       Loaded="OnShaderControlLoaded" />
         </Panel>

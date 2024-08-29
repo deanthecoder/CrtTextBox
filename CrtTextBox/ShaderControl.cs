@@ -212,7 +212,7 @@ public class ShaderControl : UserControl
     private void DisposeImpl() =>
         m_customVisual?.SendHandlerMessage(new ShaderVisualHandler.DrawPayload(ShaderVisualHandler.Command.Dispose));
 
-    public void ReloadShader(string sksl)
+    public void SetSksl(string sksl)
     {
         Stop();
         m_visualHandler.ShaderCode = sksl;

@@ -11,6 +11,7 @@
 using System;
 using System.IO;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 
@@ -25,10 +26,19 @@ public partial class MainWindow : Window
     
     private void OnTextBoxLoaded(object sender, RoutedEventArgs _)
     {
+        var textBox = (TextBox)sender;
+
         // Preload the text box with the shader code.
         using var skslStream = new StreamReader(AssetLoader.Open(new Uri("avares://CrtTextBox/Assets/crt.sksl")));
-        ((TextBox)sender).Text = skslStream.ReadToEnd();
-        ((TextBox)sender).Focus();
+        textBox.Text = skslStream.ReadToEnd();
+        textBox.Focus();
+
+        // Allow 
+        textBox.KeyDown += (_, args) =>
+        {
+            if (args.PhysicalKey == PhysicalKey.F5)
+                Shader.SetSksl(textBox.Text);
+        };
     }
     
     private void OnShaderControlLoaded(object sender, RoutedEventArgs _)
