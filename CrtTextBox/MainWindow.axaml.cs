@@ -33,17 +33,25 @@ public partial class MainWindow : Window
         textBox.Text = skslStream.ReadToEnd();
         textBox.Focus();
 
-        // Allow 
+        // Allow real-time SKSL updates using 'F5'.
         textBox.KeyDown += (_, args) =>
         {
             if (args.PhysicalKey == PhysicalKey.F5)
                 Shader.SetSksl(textBox.Text);
         };
+        
+        // Configure the CRT shader.
+        Shader.AddUniform("textColor", 1.0f, 0.5f, 0.0f);
+        Shader.AddUniform("backgroundTint", 0.2f);
+        Shader.AddUniform("enableScanlines", true);
+        Shader.AddUniform("enableSurround", true);
+        Shader.AddUniform("enableSignalDistortion", true);
+        Shader.AddUniform("enableShadows", true);
     }
     
     private void OnShaderControlLoaded(object sender, RoutedEventArgs _)
     {
-        // Set ShaderControl's source control (I.e. The TextBox).
+        // Set ShaderControl's source control.
         ((ShaderControl)sender).ControlSource = Source;
     }
 }

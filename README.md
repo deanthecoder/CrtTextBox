@@ -4,6 +4,8 @@
 
 **CrtTextBox** is an Avalonia C# project that enhances a standard TextBox control with a custom SKSL shader, giving it the appearance of an orange retro CRT screen. This effect adds a nostalgic touch to your UI with features like fish-eye distortion, scan lines, vignette, screen jitter, background noise, and a scrolling electron bar.
 ![](img/preview.png)
+It makes use of a custom `ShaderControl` control, allowing any SKSL shader code to be applied to a source Avalonia UI control.
+The `CrtTextBox` example demonstrate how to use it, and offers a cool CRT effect.
 
 ## Features
 
@@ -14,17 +16,11 @@
   - Screen jitter
   - Background noise
   - Scrolling electron bar
+  - Monitor 'surround' with screen reflection
 
 - **Cross-Platform Compatibility**: Built with [Avalonia](https://avaloniaui.net/), ensuring compatibility across Windows, MacOS, and Linux.
 
 - **Customizable**: The shader can be easily integrated into any Avalonia application and modified to suit different visual styles.
-
-## Future
-
-- Improve performance
-- Add monitor bezel
-- Add blur
-- Add screen fade
 
 ## Getting Started
 
@@ -39,13 +35,21 @@
 2. Open the solution in your IDE.
 3. Build and run the project.
 
+### Using the `ShaderControl`
+
+1. Add `ShaderControl` to your AXAML.
+2. From the code-behind, set the `ControlSource` property to the UI control you wish to apply the shader to.
+3. Set the `FPS` property, which determines the frequency the source control is sampled.
+
+Custom `uniform` values can be passed into the shader code using `ShaderControl.AddUniform(name, value)`.
+
 ## Contribution and Improvements
 
 CrtTextBox is an open-source project, and contributions are welcome. If you have ideas for new features, improvements, or bug fixes, feel free to submit a pull request. Please note that this is a side project, so responses might not be immediate.
 
 ## Credits
 
-The CRT effect shader is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+The project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 
 ## Useful Resources
 

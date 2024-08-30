@@ -17,6 +17,14 @@ uniform float iTime;
 uniform shader iImage1; // Source control image.
 uniform float2 iImageResolution; // Source control size.
 
+// Parameterized values
+uniform float3 textColor = float3(1.0, 0.5, 0.0); // Text color
+uniform float backgroundTint;         // Background tint
+uniform float enableScanlines;        // 1.0 to enable, 0.0 to disable
+uniform float enableSurround;         // 1.0 to enable, 0.0 to disable
+uniform float enableSignalDistortion; // 1.0 to enable, 0.0 to disable
+uniform float enableShadows;          // 1.0 to enable, 0.0 to disable
+
 float smoothstep(float edge0, float edge1, float x) {
     float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);
@@ -48,18 +56,10 @@ float h21(float2 p) {
 
 float4 main(float2 fragCoord)
 {
-    // Parameterized values
-    float3 textColor = float3(1.0, 0.5, 0.0); // Text color
-    float backgroundFactor = 0.2;       // Background tint
-    float enableScanlines = 1.0;        // 1.0 to enable, 0.0 to disable
-    float enableSurround = 1.0;         // 1.0 to enable, 0.0 to disable
-    float enableSignalDistortion = 1.0; // 1.0 to enable, 0.0 to disable
-    float enableShadows = 1.0;          // 1.0 to enable, 0.0 to disable
-
-    float2 res = float2(640, 480);
+    float2 res = iImageResolution;
 
     // UV coords in the range of -0.5 to 0.5
-    float2 uv = (fragCoord / res) - 0.5;
+    float2 uv = (fragCoord / iImageResolution) - 0.5;
     uv.x += 0.002;
 
     // Apply fisheye and border effect (if enabled).
@@ -110,7 +110,7 @@ float4 main(float2 fragCoord)
     float3 imageRgb = sample(iImage1, (st + 0.5) * res + float2(rnd * enableSignalDistortion, 0)).rgb;
 
     // Calculate luminance.
-    float lum = lumin(imageRgb) + backgroundFactor;
+    float lum = lumin(imageRgb) + backgroundTint;
 
     if (enableSignalDistortion > 0.5)
     {

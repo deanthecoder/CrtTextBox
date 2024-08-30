@@ -9,6 +9,7 @@
 //
 // THE SOFTWARE IS PROVIDED AS IS, WITHOUT WARRANTY OF ANY KIND.
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using Avalonia;
@@ -28,6 +29,12 @@ namespace RenderTest;
 /// </summary>
 public class ShaderControl : UserControl
 {
+    private readonly Dictionary<string, Func<float[]>> m_uniforms = new Dictionary<string, Func<float[]>>();
+    private CompositionCustomVisual m_customVisual;
+    private Control m_controlSource;
+    private SKBitmap m_sourceControlBitmap;
+    private ShaderVisualHandler m_visualHandler;
+
     /// <summary>
     /// Defines the Uri property for the shader source.
     /// </summary>
@@ -37,22 +44,14 @@ public class ShaderControl : UserControl
     /// <summary>
     /// Defines the sampling frame rate of the source control.
     /// </summary>
-    public static readonly StyledProperty<int> FpsProperty =
-        AvaloniaProperty.Register<ShaderControl, int>(
-            nameof(Fps),
-            30);
-
-    private CompositionCustomVisual m_customVisual;
-    private Control m_controlSource;
-    private SKBitmap m_sourceControlBitmap;
-    private ShaderVisualHandler m_visualHandler;
+    public static readonly StyledProperty<int> FpsProperty = AvaloniaProperty.Register<ShaderControl, int>(nameof(Fps), 30);
 
     static ShaderControl()
     {
         AffectsRender<ShaderControl>(ShaderUriProperty);
         AffectsMeasure<ShaderControl>(ShaderUriProperty);
     }
-
+    
     /// <summary>
     /// Gets or sets the frames per second (FPS) at which the source control is sampled.
     /// </summary>
@@ -96,6 +95,36 @@ public class ShaderControl : UserControl
             }, TimeSpan.FromSeconds(1.0 / Fps));
         }
     }
+
+    /// <summary>
+    /// Call to set a constant boolean uniform value, to be passed (as 0.0 or 1.0) to the shader code each frame.
+    /// </summary>
+    /// <remarks>
+    /// To receive the value in the shader, use:
+    /// uniform float iName;
+    /// </remarks>
+    public void AddUniform(string name, bool value) =>
+        AddUniform(name, value ? 1.0f : 0.0f);
+    
+    /// <summary>
+    /// Call to set a constant uniform float/float2/float3/float4 value, to be passed to the shader code each frame.
+    /// </summary>
+    /// <remarks>
+    /// To receive the values in the shader, use:
+    /// uniform float3 iName;
+    /// </remarks>
+    public void AddUniform(string name, params float[] values) =>
+        AddUniform(name, () => values);
+
+    /// <summary>
+    /// Call to set a variable uniform value using a callback function, to be passed to the shader code each frame.
+    /// </summary>
+    /// <remarks>
+    /// To receive the value in the shader, use:
+    /// uniform float3 iName;
+    /// </remarks>
+    public void AddUniform(string name, Func<float[]> getValue) =>
+        m_uniforms[name] = getValue;
 
     /// <summary>
     /// Called in response to the source control changing state, this method renders the source
@@ -152,7 +181,7 @@ public class ShaderControl : UserControl
         if (compositor is null)
             return;
 
-        m_visualHandler = new ShaderVisualHandler();
+        m_visualHandler = new ShaderVisualHandler(m_uniforms);
         m_customVisual = compositor.CreateCustomVisual(m_visualHandler);
         ElementComposition.SetElementChildVisual(this, m_customVisual);
 
@@ -202,7 +231,6 @@ public class ShaderControl : UserControl
                 ShaderUri,
                 GetShaderSize(),
                 Bounds.Size));
-
         InvalidateVisual();
     }
 
@@ -212,6 +240,9 @@ public class ShaderControl : UserControl
     private void DisposeImpl() =>
         m_customVisual?.SendHandlerMessage(new ShaderVisualHandler.DrawPayload(ShaderVisualHandler.Command.Dispose));
 
+    /// <summary>
+    /// Apply new shader code.
+    /// </summary>
     public void SetSksl(string sksl)
     {
         Stop();
@@ -225,6 +256,7 @@ public class ShaderControl : UserControl
     private class ShaderVisualHandler : CompositionCustomVisualHandler
     {
         private readonly object m_sync = new object();
+        private readonly Dictionary<string, Func<float[]>> m_customUniforms;
         private Size? m_boundsSize;
         private SKRuntimeEffect m_effect;
         private bool m_isDisposed;
@@ -233,6 +265,12 @@ public class ShaderControl : UserControl
         private SKRuntimeEffectUniforms m_uniforms;
 
         internal string ShaderCode { get; set; }
+
+        public ShaderVisualHandler(Dictionary<string, Func<float[]>> uniforms)
+        {
+            m_customUniforms = uniforms;
+            m_customUniforms["iTime"] = () => new[] { (float)CompositionNow.TotalSeconds };
+        }
 
         /// <summary>
         /// Gets or sets the source bitmap that the shader effect is applied to.
@@ -315,11 +353,13 @@ public class ShaderControl : UserControl
 
             m_uniforms ??= new SKRuntimeEffectUniforms(m_effect);
 
-            m_uniforms["iTime"] = (float)CompositionNow.TotalSeconds;
             m_uniforms["iResolution"] = new[]
             {
                 targetWidth, targetHeight
             };
+
+            foreach (var (name, getValue) in m_customUniforms)
+                m_uniforms[name] = getValue();
 
             SKRuntimeEffectChildren children = null;
             using var imageShader = SourceBitmap?.ToShader();
