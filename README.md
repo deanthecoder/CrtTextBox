@@ -49,6 +49,9 @@ CrtTextBox is an open-source project, and contributions are welcome. If you have
 
 ## Credits
 
+* Created with help from the blog: [Avalonia with Fragment Shaders](https://avaloniaui.net/blog/avalonia-with-fragment-shaders)
+* ...based on work by [Wiesław Šoltés](https://github.com/wieslawsoltes/EffectsDemo).
+
 The project is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
 
 ## Useful Resources
