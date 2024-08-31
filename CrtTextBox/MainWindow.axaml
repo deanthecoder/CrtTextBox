@@ -18,6 +18,8 @@
                              FontFamily="{StaticResource VgaFont}"
                              AcceptsReturn="True"
                              Margin="-1"
+                             ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                             ScrollViewer.VerticalScrollBarVisibility="Hidden"
                              Loaded="OnTextBoxLoaded">
                     </TextBox>
                 </Panel>

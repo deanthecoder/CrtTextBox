@@ -60,6 +60,7 @@ public partial class MainWindow : Window
 
         // Set the focused background color in the resources.
         textBox.Resources["TextControlBackgroundFocused"] = textBox.Background;
+        textBox.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(0);
 
         // Configure the CRT shader using the provided skin.
         Shader.AddUniform("brightnessBoost", (float)skin.BrightnessBoost);
