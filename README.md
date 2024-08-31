@@ -2,10 +2,12 @@
 
 # CrtTextBox
 
-**CrtTextBox** is an Avalonia C# project that enhances a standard TextBox control with a custom SKSL shader, giving it the appearance of an orange retro CRT screen. This effect adds a nostalgic touch to your UI with features like fish-eye distortion, scan lines, vignette, screen jitter, background noise, and a scrolling electron bar.
+**CrtTextBox** is an Avalonia C# project that enhances a standard TextBox control with a custom SKSL shader, giving it the appearance of a retro CRT screen. This effect adds a nostalgic touch to your UI with features like fish-eye distortion, scan lines, vignette, screen jitter, background noise, and a scrolling electron bar.
+
 ![](img/preview.png)
+
 It makes use of a custom `ShaderControl` control, allowing any SKSL shader code to be applied to a source Avalonia UI control.
-The `CrtTextBox` example demonstrate how to use it, and offers a cool CRT effect.
+The `CrtTextBox` example demonstrate how to use it with a `TextBox`, but any other source control can be used.
 
 ## Features
 
@@ -35,11 +37,22 @@ The `CrtTextBox` example demonstrate how to use it, and offers a cool CRT effect
 2. Open the solution in your IDE.
 3. Build and run the project.
 
+### Using the Text Editor
+
+The main view is taken up with the shader code itself. Feel free to modify it and press `F5` to apply changes. Right-click outside of the text area to switch Themes.
+
+### Create Your Own Theme
+
+Check out the `Themes` folder in the source tree. Modify the code to toggle features, or create your own theme from scratch.
+
 ### Using the `ShaderControl`
+
+The `ShaderControl` object is a standalone class and can be copied into your own project, and applied to any control with any shader code.
 
 1. Add `ShaderControl` to your AXAML.
 2. From the code-behind, set the `ControlSource` property to the UI control you wish to apply the shader to.
 3. Set the `FPS` property, which determines the frequency the source control is sampled.
+4. Set `ShaderUri` to point to the location of your SKSL shader code. Use `crt.sksl` as a reference.
 
 Custom `uniform` values can be passed into the shader code using `ShaderControl.AddUniform(name, value)`.
 
@@ -62,4 +75,4 @@ The project is licensed under the Creative Commons Attribution-NonCommercial-Sha
 
 ---
 
-Feel free to follow me on Twitter for more updates: [@deanthecoder](https://twitter.com/deanthecoder).
+Follow me on Twitter for more updates: [@deanthecoder](https://twitter.com/deanthecoder).

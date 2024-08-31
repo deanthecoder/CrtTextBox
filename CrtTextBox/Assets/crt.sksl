@@ -14,7 +14,7 @@
 
 uniform float2 iResolution; // ShaderControl size
 uniform float iTime;
-uniform shader iImage1; // Source control image.
+uniform shader iImage1; // Source control image, sampled multiple times per second.
 uniform float2 iImageResolution; // Source control size.
 
 // Parameterized values
@@ -57,7 +57,6 @@ float4 main(float2 fragCoord)
 
     // UV coords in the range of -0.5 to 0.5
     float2 uv = (fragCoord / iImageResolution) - 0.5;
-    uv.x += 0.002;
 
     // Apply fisheye and border effect (if enabled).
     float2 st = enableSurround > 0.5 ? fisheye(uv) : uv;
@@ -66,7 +65,7 @@ float4 main(float2 fragCoord)
 
     // Monitor screen.
     float rnd = h21(fragCoord + iTime); // Jitter.
-    float3 imageRgb = sample(iImage1, (st + 0.5) * res * 0.99 + float2(rnd * enableSignalDistortion, 0)).rgb;
+    float3 imageRgb = sample(iImage1, (st + 0.5) * res + float2(rnd * enableSignalDistortion, 0)).rgb;
 
     float bev = enableSurround > 0.5 ? (max(abs(st.x), abs(st.y)) - 0.498) / 0.035 : 0.0;
     if (bev > 0.0)

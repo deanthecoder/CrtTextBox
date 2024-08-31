@@ -6,7 +6,18 @@
         mc:Ignorable="d"
         x:Class="RenderTest.MainWindow"
         WindowState="Maximized"
-        Title="CrtTextBox">
+        Title="CrtTextBox"
+        Width="640" Height="320"
+        x:Name="Self">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="Orange Plasma" Command="{Binding SetTheme, ElementName=Self}" CommandParameter="RetroPlasma"/>
+            <MenuItem Header="Black/Green DOS" Command="{Binding SetTheme, ElementName=Self}" CommandParameter="RetroGreenDos"/>
+            <MenuItem Header="Black/White DOS" Command="{Binding SetTheme, ElementName=Self}" CommandParameter="RetroMonoDos"/>
+            <MenuItem Header="Simple" Command="{Binding SetTheme, ElementName=Self}" CommandParameter="SimpleSkin"/>
+        </ContextMenu>
+    </Window.ContextMenu>
+    
     <Viewbox>
         <Panel Width="640" Height="480">
             <Viewbox>

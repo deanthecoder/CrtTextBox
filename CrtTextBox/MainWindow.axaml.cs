@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private void OnTextBoxLoaded(object sender, RoutedEventArgs _)
     {
         var textBox = (TextBox)sender;
+        textBox.ContextMenu = null;
 
         // Preload the text box with the shader code.
         using var skslStream = new StreamReader(AssetLoader.Open(new Uri("avares://CrtTextBox/Assets/crt.sksl")));
@@ -43,24 +44,21 @@ public partial class MainWindow : Window
                 Shader.SetSksl(textBox.Text);
         };
         
-        // Configure the CRT shader.
-        //ApplyRetroSkin(textBox, new SimpleSkin());
-        //ApplyRetroSkin(textBox, new RetroMonoDos());
-        //ApplyRetroSkin(textBox, new RetroGreenDos());
-        ApplyRetroSkin(textBox, new RetroPlasma());
+        // Configure the default CRT shader.
+        ApplyRetroSkin(new RetroPlasma());
     }
 
-    private void ApplyRetroSkin(TextBox textBox, SkinBase skin)
+    private void ApplyRetroSkin(SkinBase skin)
     {
         // Apply font and color settings.
-        textBox.Foreground = SolidColorBrush.Parse(skin.ForegroundColor);
-        textBox.Background = SolidColorBrush.Parse(skin.BackgroundColor);
-        textBox.SelectionBrush = SolidColorBrush.Parse(skin.SelectionColor);
-        textBox.FontSize = skin.FontSize;
+        Source.Foreground = SolidColorBrush.Parse(skin.ForegroundColor);
+        Source.Background = SolidColorBrush.Parse(skin.BackgroundColor);
+        Source.SelectionBrush = SolidColorBrush.Parse(skin.SelectionColor);
+        Source.FontSize = skin.FontSize;
 
         // Set the focused background color in the resources.
-        textBox.Resources["TextControlBackgroundFocused"] = textBox.Background;
-        textBox.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(0);
+        Source.Resources["TextControlBackgroundFocused"] = Source.Background;
+        Source.Resources["TextControlBorderThemeThicknessFocused"] = new Thickness(0);
 
         // Configure the CRT shader using the provided skin.
         Shader.AddUniform("brightnessBoost", (float)skin.BrightnessBoost);
@@ -77,5 +75,24 @@ public partial class MainWindow : Window
     {
         // Set ShaderControl's source control.
         ((ShaderControl)sender).ControlSource = Source;
+    }
+
+    public void SetTheme(string name)
+    {
+        switch (name)
+        {
+            case "RetroPlasma":
+                ApplyRetroSkin(new RetroPlasma());
+                return;
+            case "RetroGreenDos":
+                ApplyRetroSkin(new RetroGreenDos());
+                return;
+            case "RetroMonoDos":
+                ApplyRetroSkin(new RetroMonoDos());
+                return;
+            case "SimpleSkin":
+                ApplyRetroSkin(new SimpleSkin());
+                return;
+        }
     }
 }
