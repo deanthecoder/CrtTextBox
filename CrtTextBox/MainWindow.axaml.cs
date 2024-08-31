@@ -10,10 +10,13 @@
 // THE SOFTWARE IS PROVIDED AS IS, WITHOUT WARRANTY OF ANY KIND.
 using System;
 using System.IO;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform;
+using RenderTest.Skins;
 
 namespace RenderTest;
 
@@ -41,12 +44,32 @@ public partial class MainWindow : Window
         };
         
         // Configure the CRT shader.
-        Shader.AddUniform("textColor", 1.0f, 0.5f, 0.0f);
-        Shader.AddUniform("backgroundTint", 0.2f);
-        Shader.AddUniform("enableScanlines", true);
-        Shader.AddUniform("enableSurround", true);
-        Shader.AddUniform("enableSignalDistortion", true);
-        Shader.AddUniform("enableShadows", true);
+        //ApplyRetroSkin(textBox, new SimpleSkin());
+        //ApplyRetroSkin(textBox, new RetroMonoDos());
+        //ApplyRetroSkin(textBox, new RetroGreenDos());
+        ApplyRetroSkin(textBox, new RetroPlasma());
+    }
+
+    private void ApplyRetroSkin(TextBox textBox, SkinBase skin)
+    {
+        // Apply font and color settings.
+        textBox.Foreground = SolidColorBrush.Parse(skin.ForegroundColor);
+        textBox.Background = SolidColorBrush.Parse(skin.BackgroundColor);
+        textBox.SelectionBrush = SolidColorBrush.Parse(skin.SelectionColor);
+        textBox.FontSize = skin.FontSize;
+
+        // Set the focused background color in the resources.
+        textBox.Resources["TextControlBackgroundFocused"] = textBox.Background;
+
+        // Configure the CRT shader using the provided skin.
+        Shader.AddUniform("brightnessBoost", (float)skin.BrightnessBoost);
+        Shader.AddUniform("enableScanlines", skin.EnableScanlines);
+        Shader.AddUniform("enableSurround", skin.EnableSurround);
+        Shader.AddUniform("enableSignalDistortion", skin.EnableSignalDistortion);
+        Shader.AddUniform("enableShadows", skin.EnableShadows);
+        
+        // Alignment.
+        MarginPanel.Margin = new Thickness(skin.EnableSurround ? 20 : 0);
     }
     
     private void OnShaderControlLoaded(object sender, RoutedEventArgs _)

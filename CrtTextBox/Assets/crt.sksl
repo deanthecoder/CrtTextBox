@@ -18,14 +18,14 @@ uniform shader iImage1; // Source control image.
 uniform float2 iImageResolution; // Source control size.
 
 // Parameterized values
-uniform float3 textColor = float3(1.0, 0.5, 0.0); // Text color
-uniform float backgroundTint;         // Background tint
+uniform float brightnessBoost;        // 1.0 = no boost.
 uniform float enableScanlines;        // 1.0 to enable, 0.0 to disable
 uniform float enableSurround;         // 1.0 to enable, 0.0 to disable
 uniform float enableSignalDistortion; // 1.0 to enable, 0.0 to disable
-uniform float enableShadows;          // 1.0 to enable, 0.0 to disable
+uniform float enableShadows;          // 1.0 to enable, 0.0 to disabl
 
-float smoothstep(float edge0, float edge1, float x) {
+float smoothstep(float edge0, float edge1, float x)
+{
     float t = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
     return t * t * (3.0 - 2.0 * t);
 }
@@ -37,18 +37,15 @@ float2 fisheye(float2 uv)
     return r * uv / sqrt(r * r - dot(uv, uv));
 }
 
-float bar(float y) {
+float bar(float y)
+{
     y += 0.5;
     y = fract(y * 0.7 - iTime * 0.1);
-    y = smoothstep(0.7, 0.98, y) + smoothstep(0.98, 1.0, 1.-y);
-    return y * 0.05;
+    return smoothstep(0.7, 0.98, y) + smoothstep(0.98, 1.0, 1.-y);
 }
 
-float lumin(float3 rgb) {
-    return 0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b;
-}
-
-float h21(float2 p) {
+float h21(float2 p)
+{
     float3 p3 = fract(float3(p.xyx) * float3(0.1031, 0.11369, 0.13787));
     p3 += dot(p3, p3.yzx + 19.19);
     return fract((p3.x + p3.y) * p3.z);
@@ -66,6 +63,11 @@ float4 main(float2 fragCoord)
     float2 st = enableSurround > 0.5 ? fisheye(uv) : uv;
 
     float ns = h21(fragCoord); // Random number, to use later.
+
+    // Monitor screen.
+    float rnd = h21(fragCoord + iTime); // Jitter.
+    float3 imageRgb = sample(iImage1, (st + 0.5) * res * 0.99 + float2(rnd * enableSignalDistortion, 0)).rgb;
+
     float bev = enableSurround > 0.5 ? (max(abs(st.x), abs(st.y)) - 0.498) / 0.035 : 0.0;
     if (bev > 0.0)
     {
@@ -80,7 +82,7 @@ float4 main(float2 fragCoord)
         {
             // Bevel area.
             col *= mix(0.1, 1.0, bev);
-            col = mix(textColor * 0.5, col, 0.5 + 0.5 * smoothstep(0.0, 0.4, bev));
+            col = mix(imageRgb * 0.5, col, 0.5 + 0.5 * smoothstep(0.0, 0.4, bev));
             col = col - float3(0.0, 0.05, 0.1) * ns;
 
             // Shadow.
@@ -90,43 +92,33 @@ float4 main(float2 fragCoord)
             // Screen reflection in the bevel.
             float dir = sign(-uv.x);
             float3 tint = float3(0);
-            for (float i = 0.0; i < 10.0; i++)
+            for (float i = -5.0; i < 5.0; i++)
             {
                 for (float j = -5.0; j < 5.0; j++)
-                tint += sample(iImage1, (st * 0.93 + float2(dir * i, j * 2.0) * 0.002 + 0.5) * res).rgb;
+                    tint += sample(iImage1, (st * 0.9 + float2(dir * i, j * 2.0) * 0.002 + 0.5) * res).rgb;
             }
 
-            tint /= 100.0;
-            tint = textColor * lumin(tint);
+            tint /= 80.0;
             col = mix(tint, col, 0.8 + 0.2 * bev);
         }
 
         return vec4(col, 1.0);
     }
 
-    // Monitor screen.
-    float rnd = h21(fragCoord + iTime); // Jitter.
-    res *= 0.99;
-    float3 imageRgb = sample(iImage1, (st + 0.5) * res + float2(rnd * enableSignalDistortion, 0)).rgb;
+    float lum = 1.0;
 
-    // Calculate luminance.
-    float lum = lumin(imageRgb) + backgroundTint;
+    // Background noise.
+    lum += enableSignalDistortion * (rnd - 0.5);
 
-    if (enableSignalDistortion > 0.5)
-    {
-        // Background noise.
-        lum += 0.2 * rnd;
-
-        // Scrolling electron bar.
-        lum += bar(uv.y);
-    }
+    // Scrolling electron bar.
+    lum += enableSignalDistortion * bar(uv.y) * 0.2;
 
     // Apply scanlines (if enabled).
     if (enableScanlines > 0.5 && (int(fragCoord.y) % 2) == 0)
         lum *= 0.8;
 
     // Apply main text color tint.
-    float3 col = textColor * lum;
+    float3 col = imageRgb * lum * pow(brightnessBoost, 2.0);
 
     if (enableShadows > 0.5)
     {
@@ -137,7 +129,7 @@ float4 main(float2 fragCoord)
         col *= min(1.0, 0.5 + bright);
 
         // Glare.
-        col = mix(col, float3(0.5 + 0.5 * ns), bright * 0.2 * smoothstep(0.7, 0.0, length((uv - float2(0.15, -0.3)) * float2(1.0, 2.0))));
+        col = mix(col, float3(0.5 + 0.5 * ns), bright * 0.25 * smoothstep(0.7, 0.0, length((uv - float2(0.15, -0.3)) * float2(1.0, 2.0))));
 
         // Vignette.
         col *= 1.0 - 1.2 * dot(uv, uv);
