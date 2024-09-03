@@ -20,6 +20,10 @@
         <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.1.3" />
 
         <AvaloniaResource Include="Assets\**"/>
+
+        <PackageReference Include="OpenCvSharp4" Version="4.10.0.20240616" />
+
+        <PackageReference Include="OpenCvSharp4.runtime.osx.10.15-universal" Version="4.7.0.20230224" />
     </ItemGroup>
 
 

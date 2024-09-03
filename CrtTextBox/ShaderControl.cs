@@ -20,7 +20,10 @@ using Avalonia.Platform;
 using Avalonia.Rendering.Composition;
 using Avalonia.Skia;
 using Avalonia.Threading;
+using OpenCvSharp;
 using SkiaSharp;
+using Rect = Avalonia.Rect;
+using Size = Avalonia.Size;
 
 namespace RenderTest;
 
@@ -46,12 +49,15 @@ public class ShaderControl : UserControl
     /// </summary>
     public static readonly StyledProperty<int> FpsProperty = AvaloniaProperty.Register<ShaderControl, int>(nameof(Fps), 30);
 
+    private VideoCapture m_videoCapture;
+    private Mat m_webcamFrame;
+
     static ShaderControl()
     {
         AffectsRender<ShaderControl>(ShaderUriProperty);
         AffectsMeasure<ShaderControl>(ShaderUriProperty);
     }
-    
+
     /// <summary>
     /// Gets or sets the frames per second (FPS) at which the source control is sampled.
     /// </summary>
@@ -69,7 +75,7 @@ public class ShaderControl : UserControl
         get => GetValue(ShaderUriProperty);
         set => SetValue(ShaderUriProperty, value);
     }
-        
+
     /// <summary>
     /// Gets or sets the control source to which the shader effect will be applied.
     /// </summary>
@@ -105,7 +111,7 @@ public class ShaderControl : UserControl
     /// </remarks>
     public void AddUniform(string name, bool value) =>
         AddUniform(name, value ? 1.0f : 0.0f);
-    
+
     /// <summary>
     /// Call to set a constant uniform float/float2/float3/float4 value, to be passed to the shader code each frame.
     /// </summary>
@@ -146,13 +152,87 @@ public class ShaderControl : UserControl
         using var rtb = new RenderTargetBitmap(new PixelSize(m_sourceControlBitmap.Width, m_sourceControlBitmap.Height));
         rtb.Render(ControlSource);
 
+        // Copy the rendered pixels to the bitmap.
         rtb.CopyPixels(
             new PixelRect(0, 0, m_sourceControlBitmap.Width, m_sourceControlBitmap.Height),
             m_sourceControlBitmap.GetPixels(),
             m_sourceControlBitmap.ByteCount,
             m_sourceControlBitmap.RowBytes);
 
+        ApplyWebcamOverlay();
+
         m_visualHandler.SourceBitmap = m_sourceControlBitmap;
+    }
+    private unsafe void ApplyWebcamOverlay()
+    {
+        if (Design.IsDesignMode)
+            return;
+
+        if (m_videoCapture == null)
+        {
+            m_videoCapture = new VideoCapture(0);
+
+            // Set the desired resolution (e.g., 640x480)
+            m_videoCapture.Set(VideoCaptureProperties.FrameWidth, 640);
+            m_videoCapture.Set(VideoCaptureProperties.FrameHeight, 480);
+            m_webcamFrame ??= new Mat();
+        }
+
+        m_videoCapture.Read(m_webcamFrame);
+        var resizedFrame = m_webcamFrame;
+        var resized = false;
+
+        // Check if resizing is necessary
+        if (m_webcamFrame.Width != m_sourceControlBitmap.Width || m_webcamFrame.Height != m_sourceControlBitmap.Height)
+        {
+            resizedFrame = m_webcamFrame.Resize(new OpenCvSharp.Size(m_sourceControlBitmap.Width, m_sourceControlBitmap.Height));
+            resized = true;
+        }
+
+        var pixels = m_sourceControlBitmap.GetPixels(); // Get pixel data pointer
+        var pixelSpan = new Span<byte>((void*)pixels, m_sourceControlBitmap.ByteCount);
+        for (var y = 0; y < m_sourceControlBitmap.Height; y++)
+        {
+            for (var x = 0; x < m_sourceControlBitmap.Width; x++)
+            {
+                // Ranges from 0.0 (no desaturation) to 1.0 (full desaturation).
+                var desaturationAmount = 0.8;
+
+                // Get the pixel index
+                var pixelIndex = (y * m_sourceControlBitmap.Width + x) * 4;
+
+                // Read the original color
+                var origR = pixelSpan[pixelIndex];
+                var origG = pixelSpan[pixelIndex + 1];
+                var origB = pixelSpan[pixelIndex + 2];
+
+                // Read the webcam pixel data (RGB)
+                var camColor = resizedFrame.At<Vec3b>(y, m_sourceControlBitmap.Width - x - 1);
+
+                // Convert webcam color to grayscale (luminance)
+                var camLuminance = 0.21 * camColor.Item2 + 0.72 * camColor.Item1 + 0.07 * camColor.Item0;
+
+                // Desaturate webcam color by blending the grayscale value with the original webcam color
+                var camR = (camColor.Item2 * (1.0 - desaturationAmount)) + (camLuminance * desaturationAmount);
+                var camG = (camColor.Item1 * (1.0 - desaturationAmount)) + (camLuminance * desaturationAmount);
+                var camB = (camColor.Item0 * (1.0 - desaturationAmount)) + (camLuminance * desaturationAmount);
+
+                // Blend the desaturated webcam color with the original image color
+                var reflectionIntensity = 0.025; // Adjust this value to control reflection strength (0.0 to 1.0)
+                var r = (byte)Math.Min(255, origR * (1 - reflectionIntensity) + camR * reflectionIntensity);
+                var g = (byte)Math.Min(255, origG * (1 - reflectionIntensity) + camG * reflectionIntensity);
+                var b = (byte)Math.Min(255, origB * (1 - reflectionIntensity) + camB * reflectionIntensity);
+
+                // Set new color in the span
+                pixelSpan[pixelIndex] = r;
+                pixelSpan[pixelIndex + 1] = g;
+                pixelSpan[pixelIndex + 2] = b;
+            }
+        }
+
+        // Dispose of the resized frame if it was created.
+        if (resized)
+            resizedFrame.Dispose();
     }
 
     private Size GetShaderSize() => m_controlSource?.Bounds.Size ?? new Size(512, 512);
@@ -162,8 +242,7 @@ public class ShaderControl : UserControl
 
     protected override Size ArrangeOverride(Size finalSize)
     {
-        var source = ShaderUri;
-        if (source == null)
+        if (ShaderUri == null)
             return new Size();
 
         var sourceSize = GetShaderSize();
@@ -237,8 +316,12 @@ public class ShaderControl : UserControl
     private void Stop() =>
         m_customVisual?.SendHandlerMessage(new ShaderVisualHandler.DrawPayload(ShaderVisualHandler.Command.Stop));
 
-    private void DisposeImpl() =>
+    private void DisposeImpl()
+    {
         m_customVisual?.SendHandlerMessage(new ShaderVisualHandler.DrawPayload(ShaderVisualHandler.Command.Dispose));
+        m_webcamFrame?.Dispose();
+        m_videoCapture?.Dispose();
+    }
 
     /// <summary>
     /// Apply new shader code.
@@ -269,7 +352,10 @@ public class ShaderControl : UserControl
         public ShaderVisualHandler(Dictionary<string, Func<float[]>> uniforms)
         {
             m_customUniforms = uniforms;
-            m_customUniforms["iTime"] = () => new[] { (float)CompositionNow.TotalSeconds };
+            m_customUniforms["iTime"] = () => new[]
+            {
+                (float)CompositionNow.TotalSeconds
+            };
         }
 
         /// <summary>
