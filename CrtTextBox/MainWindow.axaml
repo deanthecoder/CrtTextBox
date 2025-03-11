@@ -39,6 +39,7 @@
             <!-- The shader control, hooked up to the TextBox from the code-behind. -->
             <renderTest:ShaderControl x:Name="Shader"
                                       Fps="30"
+                                      Trails="False"
                                       ShaderUri="avares://CrtTextBox/Assets/crt.sksl"
                                       Loaded="OnShaderControlLoaded" />
         </Panel>

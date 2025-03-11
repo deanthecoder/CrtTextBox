@@ -54,6 +54,7 @@ float h21(float2 p)
 float4 main(float2 fragCoord)
 {
     float2 res = iImageResolution;
+    float fadeOn = 0.1 + 0.9 * smoothstep(0.5, 3.0, iTime);
 
     // UV coords in the range of -0.5 to 0.5
     float2 uv = (fragCoord / iImageResolution) - 0.5;
@@ -65,7 +66,23 @@ float4 main(float2 fragCoord)
 
     // Monitor screen.
     float rnd = h21(fragCoord + iTime); // Jitter.
-    float3 imageRgb = sample(iImage1, (st + 0.5) * res + float2(rnd * enableSignalDistortion, 0)).rgb;
+    
+    float2 tuv = (st + 0.5) * res + float2(rnd * enableSignalDistortion * 0.5, 0);
+    float3 imageRgb = float3(0);
+    float ampSum = 0.0;
+    for (float dx = -1.0; dx < 1.0; dx += 0.125)
+    {
+        for (float dy = -1.0; dy < 1.0; dy += 0.125)
+        {
+            // Multiple samples to add 'bloom'.
+            float amp = exp(length(float2(dx, dy)) * -2.0);
+            imageRgb += amp * sample(iImage1, tuv + float2(dx, dy) * 15.0).rgb;
+            ampSum += amp;
+        } 
+    }
+    imageRgb /= ampSum;
+    imageRgb = sample(iImage1, tuv).rgb * 0.7 + 0.5 * imageRgb;
+    imageRgb *= fadeOn;
 
     float bev = enableSurround > 0.5 ? (max(abs(st.x), abs(st.y)) - 0.498) / 0.035 : 0.0;
     if (bev > 0.0)
@@ -94,7 +111,7 @@ float4 main(float2 fragCoord)
             for (float i = -5.0; i < 5.0; i++)
             {
                 for (float j = -5.0; j < 5.0; j++)
-                    tint += sample(iImage1, (st * 0.9 + float2(dir * i, j * 2.0) * 0.002 + 0.5) * res).rgb;
+                    tint += sample(iImage1, (st * 0.9 + float2(dir * i, j * 2.0) * 0.002 + 0.5) * res).rgb * fadeOn;
             }
 
             tint /= 80.0;
@@ -107,14 +124,14 @@ float4 main(float2 fragCoord)
     float lum = 1.0;
 
     // Background noise.
-    lum += enableSignalDistortion * (rnd - 0.5);
+    lum += enableSignalDistortion * (rnd - 0.5) * 0.2;
 
     // Scrolling electron bar.
     lum += enableSignalDistortion * bar(uv.y) * 0.2;
 
     // Apply scanlines (if enabled).
     if (enableScanlines > 0.5 && (int(fragCoord.y) % 2) == 0)
-        lum *= 0.8;
+        lum *= 0.8 + 0.2 * pow(1.0 - (imageRgb.r + imageRgb.g + imageRgb.b) / 3.0, 1.0);
 
     // Apply main text color tint.
     float3 col = imageRgb * lum * pow(brightnessBoost, 2.0);
@@ -125,7 +142,7 @@ float4 main(float2 fragCoord)
         float bright = 1.0;
         if (uv.y < 0.0)
             bright = smoothstep(0.43, 0.38, length(uv * float2(0.4, 1.0)));
-        col *= min(1.0, 0.5 + bright);
+        col *= min(1.0, 0.3 + 0.7 * (bright + clamp(max(max(col.r, col.g), col.b), 0.0, 1.0)));
 
         // Glare.
         col = mix(col, float3(0.5 + 0.5 * ns), bright * 0.25 * smoothstep(0.7, 0.0, length((uv - float2(0.15, -0.3)) * float2(1.0, 2.0))));

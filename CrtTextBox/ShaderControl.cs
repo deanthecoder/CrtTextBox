@@ -34,6 +34,8 @@ public class ShaderControl : UserControl
     private Control m_controlSource;
     private SKBitmap m_sourceControlBitmap;
     private ShaderVisualHandler m_visualHandler;
+    private SKBitmap m_blurredControlBitmap;
+    private RenderTargetBitmap m_renderTargetBitmap;
 
     /// <summary>
     /// Defines the Uri property for the shader source.
@@ -45,6 +47,11 @@ public class ShaderControl : UserControl
     /// Defines the sampling frame rate of the source control.
     /// </summary>
     public static readonly StyledProperty<int> FpsProperty = AvaloniaProperty.Register<ShaderControl, int>(nameof(Fps), 30);
+    
+    /// <summary>
+    /// Defines whether phosphor trails are added.
+    /// </summary>
+    public static readonly StyledProperty<bool> TrailsProperty = AvaloniaProperty.Register<ShaderControl, bool>(nameof(Trails));
 
     static ShaderControl()
     {
@@ -68,6 +75,15 @@ public class ShaderControl : UserControl
     {
         get => GetValue(ShaderUriProperty);
         set => SetValue(ShaderUriProperty, value);
+    }
+
+    /// <summary>
+    /// Gets or sets whether phosphor trails are added.
+    /// </summary>
+    public bool Trails
+    {
+        get => GetValue(TrailsProperty);
+        set => SetValue(TrailsProperty, value);
     }
         
     /// <summary>
@@ -95,7 +111,7 @@ public class ShaderControl : UserControl
             }, TimeSpan.FromSeconds(1.0 / Fps));
         }
     }
-
+    
     /// <summary>
     /// Call to set a constant boolean uniform value, to be passed (as 0.0 or 1.0) to the shader code each frame.
     /// </summary>
@@ -141,17 +157,38 @@ public class ShaderControl : UserControl
         {
             m_sourceControlBitmap?.Dispose();
             m_sourceControlBitmap = new SKBitmap(new SKImageInfo((int)Bounds.Width, (int)Bounds.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+            m_blurredControlBitmap?.Dispose();
+            m_blurredControlBitmap = new SKBitmap(new SKImageInfo((int)Bounds.Width, (int)Bounds.Height, SKImageInfo.PlatformColorType, SKAlphaType.Premul));
+            m_renderTargetBitmap?.Dispose();
+            m_renderTargetBitmap = new RenderTargetBitmap(new PixelSize(m_sourceControlBitmap.Width, m_sourceControlBitmap.Height));
         }
 
-        using var rtb = new RenderTargetBitmap(new PixelSize(m_sourceControlBitmap.Width, m_sourceControlBitmap.Height));
-        rtb.Render(ControlSource);
+        // Get the image of the Avalonia source control.
+        m_renderTargetBitmap.Render(ControlSource);
 
-        rtb.CopyPixels(
-            new PixelRect(0, 0, m_sourceControlBitmap.Width, m_sourceControlBitmap.Height),
-            m_sourceControlBitmap.GetPixels(),
-            m_sourceControlBitmap.ByteCount,
-            m_sourceControlBitmap.RowBytes);
+        // Convert it to an SKBitmap.
+        m_renderTargetBitmap.CopyPixels(
+            new PixelRect(0, 0, m_blurredControlBitmap.Width, m_blurredControlBitmap.Height),
+            m_blurredControlBitmap.GetPixels(),
+            m_blurredControlBitmap.ByteCount,
+            m_blurredControlBitmap.RowBytes);
 
+        if (Trails)
+        {
+            // Combine image with the previous frame, to add motion blur.
+            using var paint = new SKPaint();
+            paint.Color = new SKColor(0xff, 0xff, 0xff, 100);
+            paint.BlendMode = SKBlendMode.SrcOver;
+            using var canvas = new SKCanvas(m_sourceControlBitmap);
+            canvas.DrawBitmap(m_blurredControlBitmap, 0, 0, paint);
+        }
+        else
+        {
+            using var canvas = new SKCanvas(m_sourceControlBitmap);
+            canvas.DrawBitmap(m_blurredControlBitmap, 0, 0);
+        }
+
+        // Set the image to send to the shader for display.
         m_visualHandler.SourceBitmap = m_sourceControlBitmap;
     }
 
